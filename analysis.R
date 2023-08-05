@@ -366,3 +366,21 @@ sqa_stretch <- ggplot(subset(benchmarks_stretch_long, KPI == "SQA"), aes(x = Ten
        title = "Service Quality Assurance Score per Tenure Cohort (Stretch Goal)") +
   theme_minimal()
 ggsave(filename = "./plots/benchmarks/sqa_stretch.png", plot = sqa_stretch)
+
+
+sample_df <- df %>%
+  group_by(TenureGroup) %>%
+  slice_head(n = 3) %>%   # Selects the first 3 rows of each group
+  ungroup()   # Removes the grouping
+
+sample_df <- sample_df %>%
+  mutate(TenureGroup = factor(TenureGroup, levels = c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months"))) %>%
+  arrange(TenureGroup)
+
+
+# Create the table with 'kable'
+kable_table <- kable(sample_df[2:8], "html", caption = "A sample of the dataset") %>%
+  kable_styling(bootstrap_options = c("striped", "hover", "condensed", "responsive"))
+
+# Write the table to an HTML file
+writeLines(as.character(kable_table), con = "./plots/table.html")
