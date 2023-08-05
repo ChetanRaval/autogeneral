@@ -73,40 +73,44 @@ df$TenureGroupFact <- factor(df$TenureGroup,
                                     "24+ months"))
 
 # AHT plot
-ggplot(df, aes(x = TenureGroupFact, y = AHT)) +
+aht_box <- ggplot(df, aes(x = TenureGroupFact, y = AHT)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
   labs(title = "Average Handle Time per Tenure Cohort",
        x = "Tenure Cohort",
        y = "Average Handle Time (seconds)")
+ggsave(filename = "./plots/eda/aht_box.png", plot = aht_box)
 
 # NPS plot
-ggplot(df, aes(x = TenureGroupFact, y = NPS)) +
+nps_box <- ggplot(df, aes(x = TenureGroupFact, y = NPS)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
   labs(title = "Net Promoter Score per Tenure Cohort",
        x = "Tenure Cohort",
        y = "Net Promoter Score")
+ggsave(filename = "./plots/eda/nps_box.png", plot = nps_box)
 
 # CallsPerDay plot
-ggplot(df, aes(x = TenureGroupFact, y = CallsPerDay)) +
+cpd_box <- ggplot(df, aes(x = TenureGroupFact, y = CallsPerDay)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
   labs(title = "Calls Per Day per Tenure Cohort",
        x = "Tenure Cohort",
        y = "Calls Per Day")
+ggsave(filename = "./plots/eda/cpd_box.png", plot = cpd_box)
 
 # SQA plot
-ggplot(df, aes(x = TenureGroupFact, y = SQA)) +
+sqa_box <- ggplot(df, aes(x = TenureGroupFact, y = SQA)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
   labs(title = "Service Quality Assurance per Tenure Cohort",
        x = "Tenure Cohort",
        y = "Service Quality Assurance Score")
+ggsave(filename = "./plots/eda/sqa_box.png", plot = sqa_box)
 
 
 # increase performance of more tenured employees
@@ -149,17 +153,29 @@ se_SQA <- summary(model_SQA)$coefficients["DaysEmployed", "Std. Error"]
 se <- data.frame(AHT = se_AHT, NPS = se_NPS, CallsPerDay = se_CallsPerDay, SQA = se_SQA)
 
 # plot assumptions of each model
-par(mfrow=c(2,2))
+png(filename = "./plots/model_assumptions/aht.png", width = 800, height = 800)
+par(mfrow = c(2, 2), oma = c(0, 0, 5, 0))
 plot(model_AHT)
+title("Diagnostic Plots - AHT", outer = TRUE)
+dev.off()
 
-par(mfrow=c(2,2))
+png(filename = "./plots/model_assumptions/nps.png", width = 800, height = 800)
+par(mfrow = c(2, 2), oma = c(0, 0, 5, 0))
 plot(model_NPS)
+title("Diagnostic Plots - NPS", outer = TRUE)
+dev.off()
 
-par(mfrow=c(2,2))
+png(filename = "./plots/model_assumptions/cpd.png", width = 800, height = 800)
+par(mfrow = c(2, 2), oma = c(0, 0, 5, 0))
 plot(model_CallsPerDay)
+title("Diagnostic Plots - Calls Per Day", outer = TRUE)
+dev.off()
 
-par(mfrow=c(2,2))
+png(filename = "./plots/model_assumptions/sqa.png", width = 800, height = 800)
+par(mfrow = c(2, 2), oma = c(0, 0, 5, 0))
 plot(model_SQA)
+title("Diagnostic Plots - SQA", outer = TRUE)
+dev.off()
 
 # The KPI with the highest R-squared value has the strongest linear relationship with tenure. 
 # Thus, the benchmarks for this KPI could be considered the most significant or reliable, 
@@ -218,7 +234,7 @@ benchmarks_long <- benchmarks %>%
 
 
 # ATH Plot - benchmark
-ggplot(subset(benchmarks_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+ath_benchmark <- ggplot(subset(benchmarks_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   theme_minimal() +
   labs(x = "Tenure Cohort", 
@@ -226,9 +242,11 @@ ggplot(subset(benchmarks_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, c
        color = "Percentile", 
        title = "Benchmark Average Handle Time (seconds) per Tenure Cohort") +
   theme(legend.position = "bottom")
+ggsave(filename = "./plots/benchmarks/aht_benchmark.png", plot = ath_benchmark)
+
 
 # NPS Plot - benchmark
-ggplot(subset(benchmarks_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+nps_benchmark <- ggplot(subset(benchmarks_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   theme_minimal() +
   labs(x = "Tenure Cohort", 
@@ -236,22 +254,25 @@ ggplot(subset(benchmarks_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, c
        color = "Percentile", 
        title = "Benchmark Net Promoter Score per Tenure Cohort") +
   theme(legend.position = "bottom")
+ggsave(filename = "./plots/benchmarks/nps_benchmark.png", plot = nps_benchmark)
 
 # Calls per day Plot - benchmark
-ggplot(subset(benchmarks_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+cpd_benchmark <- ggplot(subset(benchmarks_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   labs(x = "Tenure Cohort", 
        y = "Calls per Day", 
        color = "Percentile", 
        title = "Benchmark Number of Calls per day per Tenure Cohort") +
   theme_minimal()
+ggsave(filename = "./plots/benchmarks/cpd_benchmark.png", plot = cpd_benchmark)
 
 # SQA Plot - benchmark
-ggplot(subset(benchmarks_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+sqa_benchmark <- ggplot(subset(benchmarks_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   labs(x = "Tenure Cohort", 
        y = "Service Quality Assurance Score", color = "Percentile", title = "Service Quality Assurance Score per Tenure Cohort") +
   theme_minimal()
+ggsave(filename = "./plots/benchmarks/sqa_benchmark.png", plot = sqa_benchmark)
 
 
 
@@ -303,7 +324,7 @@ benchmarks_stretch_long <- benchmarks_stretch %>%
                values_to = "Value")
 
 # ATH Plot - benchmark
-ggplot(subset(benchmarks_stretch_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+ath_stretch <- ggplot(subset(benchmarks_stretch_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   theme_minimal() +
   labs(x = "Tenure Cohort", 
@@ -311,9 +332,10 @@ ggplot(subset(benchmarks_stretch_long, KPI == "ATH"), aes(x = TenureCohort, y = 
        color = "Percentile", 
        title = "Benchmark Average Handle Time (seconds) per Tenure Cohort (Stretch Goal)") +
   theme(legend.position = "bottom")
+ggsave(filename = "./plots/benchmarks/ath_stretch.png", plot = ath_stretch)
 
 # NPS Plot - benchmark
-ggplot(subset(benchmarks_stretch_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+nps_stretch <- ggplot(subset(benchmarks_stretch_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   theme_minimal() +
   labs(x = "Tenure Cohort", 
@@ -321,23 +343,26 @@ ggplot(subset(benchmarks_stretch_long, KPI == "NPS"), aes(x = TenureCohort, y = 
        color = "Percentile", 
        title = "Benchmark Net Promoter Score per Tenure Cohort (Stretch Goal)") +
   theme(legend.position = "bottom")
+ggsave(filename = "./plots/benchmarks/nps_stretch.png", plot = nps_stretch)
+
 
 # Calls per day Plot - benchmark
-ggplot(subset(benchmarks_stretch_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+cpd_stretch <- ggplot(subset(benchmarks_stretch_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   labs(x = "Tenure Cohort", 
        y = "Calls per Day", 
        color = "Percentile", 
        title = "Benchmark Number of Calls per day per Tenure Cohort (Stretch Goal)") +
   theme_minimal()
+ggsave(filename = "./plots/benchmarks/cpd_stretch.png", plot = cpd_stretch)
+
 
 # SQA Plot - benchmark
-ggplot(subset(benchmarks_stretch_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+sqa_stretch <- ggplot(subset(benchmarks_stretch_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
   geom_line() +
   labs(x = "Tenure Cohort", 
        y = "Service Quality Assurance Score", 
        color = "Percentile", 
        title = "Service Quality Assurance Score per Tenure Cohort (Stretch Goal)") +
   theme_minimal()
-
-
+ggsave(filename = "./plots/benchmarks/sqa_stretch.png", plot = sqa_stretch)
