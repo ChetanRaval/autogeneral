@@ -1,9 +1,10 @@
-# install.packages(c("tidyverse", "lubridate", "MASS", "reshape2"))
+# install.packages(c("tidyverse", "lubridate", "MASS", "reshape2", "quantreg"))
 
 library(tidyverse)
 library(MASS)
 library(lubridate)
 library(reshape2)
+library(quantreg)
 
 # set seed for reproducibility when generating random data
 set.seed(123)
@@ -76,8 +77,8 @@ ggplot(df, aes(x = TenureGroupFact, y = AHT)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
-  labs(title = "Average Handle Time per Tenure Group",
-       x = "Tenure Group",
+  labs(title = "Average Handle Time per Tenure Cohort",
+       x = "Tenure Cohort",
        y = "Average Handle Time (seconds)")
 
 # NPS plot
@@ -85,8 +86,8 @@ ggplot(df, aes(x = TenureGroupFact, y = NPS)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
-  labs(title = "Net Promoter Score per Tenure Group",
-       x = "Tenure Group",
+  labs(title = "Net Promoter Score per Tenure Cohort",
+       x = "Tenure Cohort",
        y = "Net Promoter Score")
 
 # CallsPerDay plot
@@ -94,8 +95,8 @@ ggplot(df, aes(x = TenureGroupFact, y = CallsPerDay)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
-  labs(title = "Calls Per Day per Tenure Group",
-       x = "Tenure Group",
+  labs(title = "Calls Per Day per Tenure Cohort",
+       x = "Tenure Cohort",
        y = "Calls Per Day")
 
 # SQA plot
@@ -103,8 +104,8 @@ ggplot(df, aes(x = TenureGroupFact, y = SQA)) +
   geom_boxplot() +
   geom_jitter(width = 0.2, size = 1, alpha = 0.5) +
   theme_minimal() +
-  labs(title = "Service Quality Assurance per Tenure Group",
-       x = "Tenure Group",
+  labs(title = "Service Quality Assurance per Tenure Cohort",
+       x = "Tenure Cohort",
        y = "Service Quality Assurance Score")
 
 
@@ -130,17 +131,6 @@ df_summary <- df %>%
     Median_SQA = median(SQA),
     SD_SQA = sd(SQA)
   )
-
-
-# Convert tenure groups to numerical values
-# integers in ifelse are the middle value for the tenure range
-# i.e. 0-6 months is 3 months, 6-12 months is 9 months etc.
-# df$TenureNumerical <- ifelse(df$TenureGroup == "0-6 months", 3, 
-#                              ifelse(df$TenureGroup == "6-12 months", 9, 
-#                                     ifelse(df$TenureGroup == "12-18 months", 15, 
-#                                            ifelse(df$TenureGroup == "18-24 months", 21, 30))))
-
-
 
 # Fit linear models
 # KPI as a function of cohort
@@ -171,37 +161,6 @@ plot(model_CallsPerDay)
 par(mfrow=c(2,2))
 plot(model_SQA)
 
-
-
-
-
-
-
-# Create a new data frame for days of employment
-days <- seq(0, 1080, by = 15) # 15-day intervals from 30 to 720
-benchmarks <- data.frame(DaysEmployed = days)
-
-# Predict KPIs at each specified day of employment
-benchmarks$AHT <- predict(model_AHT, newdata = benchmarks)
-benchmarks$NPS <- predict(model_NPS, newdata = benchmarks)
-benchmarks$CallsPerDay <- round(predict(model_CallsPerDay, newdata = benchmarks))
-benchmarks$SQA <- predict(model_SQA, newdata = benchmarks)
-
-# Define breaks for the tenure cohort categories
-breaks <- c(0, 180, 360, 540, 720, Inf) # corresponds to 0-6, 6-12, 12-18, 18-24, 24+ months
-
-# Define labels for the tenure cohort categories
-labels <- c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months")
-
-# Create TenureCohort column
-benchmarks$TenureCohort <- cut(benchmarks$DaysEmployed, breaks = breaks, labels = labels, include.lowest = TRUE, right = FALSE)
-
-# Repeat se data frame for each row of benchmarks
-se_rep <- se[rep(1, nrow(benchmarks)), ]
-
-# Use standard errors to calculate confidence intervals
-benchmarks <- cbind(benchmarks, lower = benchmarks[, 2:5] - 1.96 * se_rep, upper = benchmarks[, 2:5] + 1.96 * se_rep)
-
 # The KPI with the highest R-squared value has the strongest linear relationship with tenure. 
 # Thus, the benchmarks for this KPI could be considered the most significant or reliable, 
 # in terms of being predicted by tenure
@@ -209,5 +168,176 @@ summary(model_AHT)$r.squared
 summary(model_NPS)$r.squared
 summary(model_CallsPerDay)$r.squared
 summary(model_SQA)$r.squared
+
+
+# make predictions for KPI benchmarks per tenure cohort using quantile regression
+
+# Define tenure midpoints
+midpoints <- c(90, 270, 450, 630, 900)
+
+# Initialize benchmarks data frame
+benchmarks <- data.frame(TenureGroup = c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months"),
+                         DaysEmployed = midpoints)
+
+# List of KPIs
+kpis <- c("AHT", "NPS", "CallsPerDay", "SQA")
+
+# Loop over KPIs
+for (kpi in kpis) {
+  # Fit quantile regression model for current KPI
+  model <- rq(as.formula(paste(kpi, "~ DaysEmployed")), tau = c(0.25, 0.5, 0.75), data = df)
+  
+  # Make predictions for each tenure midpoint
+  predictions <- predict(model, newdata = benchmarks)
+  
+  # Add predictions to benchmarks data frame
+  benchmarks <- cbind(benchmarks, predictions)
+}
+
+# Print benchmarks dataframe
+print(benchmarks)
+
+# Make informative column names
+colnames(benchmarks) <- c("TenureCohort", "Days_Midpoint",
+                          "ATH_25th", "ATH_50th", "ATH_75th",
+                          "NPS_25th", "NPS_50th", "NPS_75th",
+                          "Calls_25th", "Calls_50th", "Calls_75th",
+                          "SQA_25th", "SQA_50th", "SQA_75th")
+
+# Convert TenureCohort to an ordered factor so it plots in the correct order
+benchmarks$TenureCohort <- factor(benchmarks$TenureCohort, 
+                                  levels = c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months"), 
+                                  ordered = TRUE)
+
+# convert benchmarks dataframe to long format for plotting
+benchmarks_long <- benchmarks %>%
+  pivot_longer(cols = -c(TenureCohort, Days_Midpoint), 
+               names_to = c("KPI", "Percentile"), 
+               names_sep = "_", 
+               values_to = "Value")
+
+
+# ATH Plot - benchmark
+ggplot(subset(benchmarks_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Tenure Cohort", 
+       y = "Average Handle Time (seconds)", 
+       color = "Percentile", 
+       title = "Benchmark Average Handle Time (seconds) per Tenure Cohort") +
+  theme(legend.position = "bottom")
+
+# NPS Plot - benchmark
+ggplot(subset(benchmarks_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Tenure Cohort", 
+       y = "Net Promoter Score", 
+       color = "Percentile", 
+       title = "Benchmark Net Promoter Score per Tenure Cohort") +
+  theme(legend.position = "bottom")
+
+# Calls per day Plot - benchmark
+ggplot(subset(benchmarks_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  labs(x = "Tenure Cohort", 
+       y = "Calls per Day", 
+       color = "Percentile", 
+       title = "Benchmark Number of Calls per day per Tenure Cohort") +
+  theme_minimal()
+
+# SQA Plot - benchmark
+ggplot(subset(benchmarks_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  labs(x = "Tenure Cohort", 
+       y = "Service Quality Assurance Score", color = "Percentile", title = "Service Quality Assurance Score per Tenure Cohort") +
+  theme_minimal()
+
+
+
+## STRETCH GOAL
+# make predictions for KPI benchmarks per tenure cohort using quantile regression
+
+# Define tenure midpoints
+midpoints <- c(90, 270, 450, 630, 900)
+
+# Initialize benchmarks data frame
+benchmarks_stretch <- data.frame(TenureGroup = c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months"),
+                         DaysEmployed = midpoints)
+
+# List of KPIs
+kpis <- c("AHT", "NPS", "CallsPerDay", "SQA")
+
+# Loop over KPIs
+for (kpi in kpis) {
+  # Fit quantile regression model for current KPI
+  model <- rq(as.formula(paste(kpi, "~ DaysEmployed")), tau = c(0.50, 0.75, 0.90), data = df)
+  
+  # Make predictions for each tenure midpoint
+  predictions <- predict(model, newdata = benchmarks_stretch)
+  
+  # Add predictions to benchmarks data frame
+  benchmarks_stretch <- cbind(benchmarks_stretch, predictions)
+}
+
+# Print benchmarks dataframe
+head(benchmarks_stretch)
+
+# Make informative column names
+colnames(benchmarks_stretch) <- c("TenureCohort", "Days_Midpoint",
+                          "ATH_50th", "ATH_75th", "ATH_90th",
+                          "NPS_50th", "NPS_75th", "NPS_90th",
+                          "Calls_50th", "Calls_75th", "Calls_90th",
+                          "SQA_50th", "SQA_75th", "SQA_90th")
+
+# Convert TenureCohort to an ordered factor so it plots in the correct order
+benchmarks_stretch$TenureCohort <- factor(benchmarks_stretch$TenureCohort, 
+                                  levels = c("0-6 months", "6-12 months", "12-18 months", "18-24 months", "24+ months"), 
+                                  ordered = TRUE)
+
+# convert benchmarks dataframe to long format for plotting
+benchmarks_stretch_long <- benchmarks_stretch %>%
+  pivot_longer(cols = -c(TenureCohort, Days_Midpoint), 
+               names_to = c("KPI", "Percentile"), 
+               names_sep = "_", 
+               values_to = "Value")
+
+# ATH Plot - benchmark
+ggplot(subset(benchmarks_stretch_long, KPI == "ATH"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Tenure Cohort", 
+       y = "Average Handle Time (seconds)", 
+       color = "Percentile", 
+       title = "Benchmark Average Handle Time (seconds) per Tenure Cohort (Stretch Goal)") +
+  theme(legend.position = "bottom")
+
+# NPS Plot - benchmark
+ggplot(subset(benchmarks_stretch_long, KPI == "NPS"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  theme_minimal() +
+  labs(x = "Tenure Cohort", 
+       y = "Net Promoter Score", 
+       color = "Percentile", 
+       title = "Benchmark Net Promoter Score per Tenure Cohort (Stretch Goal)") +
+  theme(legend.position = "bottom")
+
+# Calls per day Plot - benchmark
+ggplot(subset(benchmarks_stretch_long, KPI == "Calls"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  labs(x = "Tenure Cohort", 
+       y = "Calls per Day", 
+       color = "Percentile", 
+       title = "Benchmark Number of Calls per day per Tenure Cohort (Stretch Goal)") +
+  theme_minimal()
+
+# SQA Plot - benchmark
+ggplot(subset(benchmarks_stretch_long, KPI == "SQA"), aes(x = TenureCohort, y = Value, color = Percentile, group = Percentile)) +
+  geom_line() +
+  labs(x = "Tenure Cohort", 
+       y = "Service Quality Assurance Score", 
+       color = "Percentile", 
+       title = "Service Quality Assurance Score per Tenure Cohort (Stretch Goal)") +
+  theme_minimal()
 
 
