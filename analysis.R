@@ -5,6 +5,7 @@ library(MASS)
 library(lubridate)
 library(reshape2)
 library(quantreg)
+library(equatiomatic)
 
 # set seed for reproducibility when generating random data
 set.seed(123)
@@ -29,7 +30,7 @@ for (i in 1:length(tenure_groups)) {
     TenureGroup = tenure_groups[i],
     # generate values for KPIs from a normal distribution - sqrt function is used here to simulate the increase as tenure increases
     AHT = rnorm(n = employees_per_group[i], mean = (600 - sqrt(i)*60), sd = 50), # Increased variability
-    NPS = round(rnorm(n = employees_per_group[i], mean = (5 + sqrt(i)*15), sd = 15)),  # Increased variability
+    NPS = round(rnorm(n = employees_per_group[i], mean = (10 + sqrt(i)*15), sd = 15)),  # Increased variability
     CallsPerDay = round(rnorm(n = employees_per_group[i], mean = (10 + sqrt(i)*10), sd = 10)),  # Increased variability
     # Poisson distribution used to create the number of assessments completed by each employee
     QA_Assessments = rpois(n = employees_per_group[i], lambda = 10 + (i-1)*2),  
@@ -113,11 +114,6 @@ sqa_box <- ggplot(df, aes(x = TenureGroupFact, y = SQA)) +
 ggsave(filename = "./plots/eda/sqa_box.png", plot = sqa_box)
 
 
-# increase performance of more tenured employees
-# have more people at either end of the range rather than in the middle
-# have better performing newer staff at lower end of AHT and NPS etc.
-# make increases less aggressive between cohorts but remain linear
-
 # create summary table showing mean/median/SD of each KPI per tenure group
 df_summary <- df %>% 
   group_by(TenureGroup) %>% 
@@ -142,6 +138,38 @@ model_AHT <- lm(AHT ~ DaysEmployed, data = df)
 model_NPS <- lm(NPS ~ DaysEmployed, data = df)
 model_CallsPerDay <- lm(CallsPerDay ~ DaysEmployed, data = df)
 model_SQA <- lm(SQA ~ DaysEmployed, data = df)
+
+# Get the coefficients from the models
+coeff_AHT <- coef(model_AHT)
+coeff_NPS <- coef(model_NPS)
+coeff_CallsPerDay <- coef(model_CallsPerDay)
+coeff_SQA <- coef(model_SQA)
+
+
+
+png(filename = "./plots/eda/raw_data.png", width = 800, height = 800)
+# plot the raw data with a line of best fit and equation of the line
+par(mfrow = c(2,2))
+
+plot(df$AHT, ylab = "Average Handle Time (seconds)", main = "Average Handle Time (seconds)")
+abline(model_AHT, col = "red")
+text(x = length(df$AHT) * 0.7, y = max(df$AHT) - 5, paste("y =", round(coeff_AHT[1], 2), round(coeff_AHT[2], 2), "x"))
+
+# Plot for NPS
+plot(df$NPS, ylab= "Net Promoter Score", main = "Net Promoter Score")
+abline(model_NPS, col = "red")
+text(x = 40, y = max(df$NPS) - 5, paste("y =", round(coeff_NPS[1], 2), "+", round(coeff_NPS[2], 2), "x"))
+
+# Plot for CallsPerDay
+plot(df$CallsPerDay, ylab = "Calls Per Day", main = "Calls Per Day")
+abline(model_CallsPerDay, col = "red")
+text(x = 40, y = max(df$CallsPerDay) - 2, paste("y =", round(coeff_CallsPerDay[1], 2), "+", round(coeff_CallsPerDay[2], 2), "x"))
+
+# Plot for SQA
+plot(df$SQA, ylab = "Service Quality Assurance Score", main = "Service Quality Assurance")
+abline(model_SQA, col = "red")
+text(x = 40, y = max(df$SQA) - 1, paste("y =", round(coeff_SQA[1], 2), "+", round(coeff_SQA[2], 2), "x"))
+dev.off()
 
 # Calculate standard errors for each model
 se_AHT <- summary(model_AHT)$coefficients["DaysEmployed", "Std. Error"]
